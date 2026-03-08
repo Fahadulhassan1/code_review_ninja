@@ -149,15 +149,58 @@ def test_full_demo_pipeline():
     """Test the full multi-agent pipeline end-to-end with demo Go code."""
     from code_review.cli import _parse_unified_diff, DEMO_GO_DIFF, run_review_on_diffs
     diffs = _parse_unified_diff(DEMO_GO_DIFF)
-    review = run_review_on_diffs(diffs)
+    result = run_review_on_diffs(diffs)
 
+    review = result["review_comment"]
     # The demo Go code has SQL injection + command injection + O(n^2) — agents MUST find these
     review_lower = review.lower()
     assert "sql injection" in review_lower or "sql" in review_lower, "Security agent missed SQL injection"
     assert "command injection" in review_lower or "exec.command" in review_lower or "command" in review_lower, "Security agent missed command injection"
     assert "findings" in review_lower or "finding" in review_lower, "Aggregator didn't produce findings"
     assert "PR #" in review, "Missing PR reference in output"
+    # Verify findings are collected
+    assert len(result["findings"]) > 0, "No findings collected"
+    assert result["total_findings"] > 0, "total_findings should be > 0"
     print("✅ Full pipeline: found SQL injection, command injection, formatted review")
+
+
+def test_inline_comment_line_parsing():
+    """Test diff hunk parsing for inline review comments."""
+    from code_review.github_client import _parse_commentable_lines, _find_comment_line
+
+    patch = """@@ -1,5 +1,8 @@
+ package main
+ 
++import "database/sql"
++import "fmt"
+ 
+ import (
+@@ -10,3 +13,6 @@
+ )
++
++func GetUser() {}
++func DeleteUser() {}"""
+
+    lines = _parse_commentable_lines(patch)
+    # New-side lines from hunks should be commentable
+    assert 1 in lines    # context: package main
+    assert 3 in lines    # added: import "database/sql"
+    assert 4 in lines    # added: import "fmt"
+    assert 15 in lines   # added: func GetUser() {}
+    assert 16 in lines   # added: func DeleteUser() {}
+    # Lines not in diff should NOT be commentable
+    assert 7 not in lines
+    assert 10 not in lines
+
+    # Test line mapping
+    assert _find_comment_line("3-4", lines) == 3
+    assert _find_comment_line("15", lines) == 15
+    assert _find_comment_line("100", lines) is None
+    assert _find_comment_line("", lines) is None
+    assert _find_comment_line("invalid", lines) is None
+    # Nearby matching (±3)
+    assert _find_comment_line("17", lines) == 16  # 17 not in diff, 16 is nearby
+    print("✅ Inline comment line parsing: diff hunk + line mapping")
 
 
 def test_multi_file_diff():
@@ -201,6 +244,7 @@ def main():
         test_state_creation,
         test_aggregator_empty,
         test_aggregator_with_findings,
+        test_inline_comment_line_parsing,
         test_multi_file_diff,
     ]
 

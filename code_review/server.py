@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel
 
-from code_review.github_client import fetch_pr_diffs, post_review_comment
+from code_review.github_client import fetch_pr_diffs, post_inline_review
 from code_review.graph import build_review_graph
 from code_review.llm import validate_env
 from code_review.state import ReviewState
@@ -151,29 +151,31 @@ async def run_review(repo_full_name: str, pr_number: int) -> dict:
 
     # Run blocking graph.stream() in a thread to avoid blocking the event loop
     def _stream_graph():
-        final_state = None
+        all_findings = []
+        final_update = {}
         for event in graph.stream(state, stream_mode="updates"):
-            for node_name in event:
+            for node_name, update in event.items():
                 logger.info("Agent completed: %s", node_name)
-            final_state = event
-        return final_state
+                for key in ("security_findings", "performance_findings", "style_findings", "docs_findings"):
+                    all_findings.extend(update.get(key, []))
+                final_update.update(update)
+        return final_update, all_findings
 
-    final_state = await asyncio.to_thread(_stream_graph)
+    final_update, all_findings = await asyncio.to_thread(_stream_graph)
 
-    # Extract aggregator output
-    review_comment = ""
-    total_findings = 0
-    if final_state:
-        for update in final_state.values():
-            if "review_comment" in update:
-                review_comment = update["review_comment"]
-                total_findings = update.get("total_findings", 0)
+    review_comment = final_update.get("review_comment", "")
+    total_findings = final_update.get("total_findings", 0)
 
-    # Post review comment to GitHub
+    # Post inline review to GitHub
     comment_url = ""
     if review_comment:
-        logger.info("Posting review comment to GitHub")
-        comment_url = await asyncio.to_thread(post_review_comment, repo_full_name, pr_number, review_comment)
+        logger.info("Posting inline review to GitHub (%d findings)", len(all_findings))
+        comment_url = await asyncio.to_thread(
+            post_inline_review,
+            repo_full_name, pr_number,
+            all_findings, file_diffs,
+            review_comment,
+        )
         logger.info("Review posted: %s", comment_url)
 
     return {

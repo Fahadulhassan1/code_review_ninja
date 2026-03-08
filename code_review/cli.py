@@ -124,8 +124,11 @@ DEMO_GO_DIFF = '''diff --git a/handler.go b/handler.go
 '''
 
 
-def run_review_on_diffs(file_diffs: list[FileDiff], pr_number: int = 0) -> str:
-    """Run the multi-agent review on a list of file diffs. Returns the review comment."""
+def run_review_on_diffs(file_diffs: list[FileDiff], pr_number: int = 0) -> dict:
+    """Run the multi-agent review on a list of file diffs.
+
+    Returns dict with: review_comment, findings, total_findings, has_critical.
+    """
     state = ReviewState(
         pr_number=pr_number,
         pr_title="Local Review",
@@ -133,6 +136,7 @@ def run_review_on_diffs(file_diffs: list[FileDiff], pr_number: int = 0) -> str:
     )
 
     graph = build_review_graph()
+    all_findings = []
 
     with Progress(
         SpinnerColumn(),
@@ -145,6 +149,10 @@ def run_review_on_diffs(file_diffs: list[FileDiff], pr_number: int = 0) -> str:
         for event in graph.stream(state, stream_mode="updates"):
             for node_name, update in event.items():
                 progress.update(task, description=f"Agent: [bold green]{node_name}[/bold green]")
+
+                # Collect findings from specialist agents
+                for key in ("security_findings", "performance_findings", "style_findings", "docs_findings"):
+                    all_findings.extend(update.get(key, []))
 
                 if node_name == "security":
                     n = len(update.get("security_findings", []))
@@ -164,7 +172,12 @@ def run_review_on_diffs(file_diffs: list[FileDiff], pr_number: int = 0) -> str:
 
                 final_update.update(update)
 
-    return final_update.get("review_comment", "No review generated")
+    return {
+        "review_comment": final_update.get("review_comment", "No review generated"),
+        "findings": all_findings,
+        "total_findings": final_update.get("total_findings", 0),
+        "has_critical": final_update.get("has_critical", False),
+    }
 
 
 # Regex to parse GitHub PR URLs like https://github.com/owner/repo/pull/42
@@ -216,7 +229,7 @@ def main():
     console.print(f"Provider: [bold]{LLM_PROVIDER}[/bold] ({REASONING_MODEL}) + [bold]LangGraph[/bold]\n")
 
     try:
-        review = _run_mode(args)
+        result = _run_mode(args)
     except DailyQuotaExceeded as e:
         console.print(f"\n[bold red]⛔ Daily token limit reached for provider '{LLM_PROVIDER}'.[/bold red]")
         console.print(f"[yellow]{e.wait_message}[/yellow]")
@@ -226,15 +239,15 @@ def main():
     # Display the review
     console.print("\n")
     console.print(Panel(
-        Markdown(review),
+        Markdown(result["review_comment"]),
         title="📋 Code Review Results",
         border_style="green",
         padding=(1, 2),
     ))
 
 
-def _run_mode(args) -> str:
-    """Execute the selected review mode and return the review comment."""
+def _run_mode(args) -> dict:
+    """Execute the selected review mode and return review result dict."""
     if args.demo:
         console.print("[yellow]Running demo review on sample Go code with intentional vulnerabilities...[/yellow]\n")
         file_diffs = _parse_unified_diff(DEMO_GO_DIFF)
@@ -251,19 +264,23 @@ def _run_mode(args) -> str:
 
     if args.repo and args.pr:
         console.print(f"[yellow]Fetching PR #{args.pr} from {args.repo}...[/yellow]\n")
-        from code_review.github_client import fetch_pr_diffs, post_review_comment
+        from code_review.github_client import fetch_pr_diffs, post_inline_review
 
         metadata, file_diffs = fetch_pr_diffs(args.repo, args.pr)
         console.print(f"  PR: {metadata['pr_title']}")
         console.print(f"  Files: {len(file_diffs)}\n")
 
-        review = run_review_on_diffs(file_diffs, pr_number=args.pr)
+        result = run_review_on_diffs(file_diffs, pr_number=args.pr)
 
         if args.post:
-            console.print("\n[yellow]Posting review to GitHub...[/yellow]")
-            url = post_review_comment(args.repo, args.pr, review)
+            console.print("\n[yellow]Posting inline review to GitHub...[/yellow]")
+            url = post_inline_review(
+                args.repo, args.pr,
+                result["findings"], file_diffs,
+                result["review_comment"],
+            )
             console.print(f"  ✅ Posted: {url}")
-        return review
+        return result
 
     # No mode selected — should not reach here due to earlier checks
     sys.exit(1)
