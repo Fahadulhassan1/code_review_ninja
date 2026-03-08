@@ -25,7 +25,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from code_review.agents import DailyQuotaExceeded
 from code_review.graph import build_review_graph
-from code_review.llm import validate_env
+from code_review.llm import validate_env, LLM_PROVIDER, REASONING_MODEL
 from code_review.state import FileDiff, ReviewState
 
 console = Console()
@@ -212,15 +212,15 @@ def main():
     # Fail fast if GROQ_API_KEY is missing
     validate_env()
 
-    console.print("\n[bold cyan]═══ Agentic AI Code Review Bot ═══[/bold cyan]\n")
-    console.print("Powered by [bold]Groq[/bold] (Llama 3.3 70B) + [bold]LangGraph[/bold]\n")
+    console.print("\n[bold cyan]═══ Code Review Ninja 🥷 ═══[/bold cyan]\n")
+    console.print(f"Provider: [bold]{LLM_PROVIDER}[/bold] ({REASONING_MODEL}) + [bold]LangGraph[/bold]\n")
 
     try:
         review = _run_mode(args)
     except DailyQuotaExceeded as e:
-        console.print(f"\n[bold red]⛔ Groq free tier daily token limit reached.[/bold red]")
+        console.print(f"\n[bold red]⛔ Daily token limit reached for provider '{LLM_PROVIDER}'.[/bold red]")
         console.print(f"[yellow]{e.wait_message}[/yellow]")
-        console.print("\nTip: Check your usage at [link=https://console.groq.com]console.groq.com[/link]")
+        console.print("\nTip: Switch providers with LLM_PROVIDER or wait for your quota to reset.")
         sys.exit(1)
 
     # Display the review

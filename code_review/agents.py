@@ -8,11 +8,21 @@ import logging
 import re
 import time
 
-from groq import RateLimitError
 from langchain_core.messages import HumanMessage, SystemMessage
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
-from code_review.llm import get_reasoning_llm
+from code_review.llm import get_reasoning_llm, LLM_PROVIDER, REASONING_MODEL
+
+# Import provider-specific rate limit errors (may not be installed)
+try:
+    from groq import RateLimitError as GroqRateLimitError
+except ImportError:
+    GroqRateLimitError = None
+
+try:
+    from openai import RateLimitError as OpenAIRateLimitError
+except ImportError:
+    OpenAIRateLimitError = None
 from code_review.state import (
     FileDiff,
     ReviewCategory,
@@ -156,11 +166,24 @@ Only report issues in the changed code (lines starting with + in the diff).
 """
 
 
+def _is_rate_limit_error(exc: BaseException) -> bool:
+    """Check if an exception is a rate limit error from any supported provider."""
+    if GroqRateLimitError and isinstance(exc, GroqRateLimitError):
+        return True
+    if OpenAIRateLimitError and isinstance(exc, OpenAIRateLimitError):
+        return True
+    # Anthropic and Gemini raise httpx-based or generic HTTP errors
+    err_msg = str(exc).lower()
+    if "rate limit" in err_msg or "429" in err_msg or "too many requests" in err_msg:
+        return True
+    return False
+
+
 class DailyQuotaExceeded(Exception):
-    """Raised when Groq daily token quota is exhausted."""
+    """Raised when the provider's daily/free-tier token quota is exhausted."""
     def __init__(self, wait_message: str):
         self.wait_message = wait_message
-        super().__init__(f"Groq daily token limit reached. {wait_message}")
+        super().__init__(f"Daily token limit reached. {wait_message}")
 
 
 def _is_daily_limit(exc: BaseException) -> bool:
@@ -180,7 +203,7 @@ def _should_retry(exc: BaseException) -> bool:
     """Return True for transient errors worth retrying."""
     if isinstance(exc, (ConnectionError, TimeoutError, OSError)):
         return True
-    if isinstance(exc, RateLimitError) and not _is_daily_limit(exc):
+    if _is_rate_limit_error(exc) and not _is_daily_limit(exc):
         return True
     return False
 
@@ -206,12 +229,12 @@ def _invoke_llm_with_retry(llm, system_prompt: str, user_prompt: str):
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_prompt),
         ])
-    except RateLimitError as e:
-        if _is_daily_limit(e):
+    except Exception as e:
+        if _is_rate_limit_error(e) and _is_daily_limit(e):
             wait_match = re.search(r"try again in ([^.]+)", str(e), re.IGNORECASE)
             wait_msg = f"Try again in {wait_match.group(1)}." if wait_match else "Try again later."
             raise DailyQuotaExceeded(wait_msg) from e
-        raise  # Per-minute limit — let tenacity retry
+        raise  # Transient error — let tenacity retry
 
 
 def security_agent(state: ReviewState) -> dict:
@@ -413,12 +436,12 @@ def _format_clean_review(state: ReviewState) -> str:
 
 - **Files reviewed**: {len(state.file_diffs)}
 - **Agents**: Security, Performance, Style, Documentation
-- **Model**: Llama 3.3 70B via Groq
+- **Provider**: {LLM_PROVIDER} ({REASONING_MODEL})
 
 </details>
 
 ---
-*Powered by [Agentic Code Review Bot](https://github.com/Fahadulhassan1/code_review_ninja) — Multi-agent review with LangGraph + Groq*
+*Powered by [Code Review Ninja](https://github.com/Fahadulhassan1/code_review_ninja) — Multi-agent review with LangGraph*
 """
 
 
@@ -494,12 +517,12 @@ def _format_review_comment(
         f"- **Files reviewed**: {len(state.file_diffs)}",
         f"- **Total findings**: {len(findings)}",
         "- **Agents**: Security, Performance, Style, Documentation",
-        "- **Model**: Llama 3.3 70B via Groq",
+        f"- **Provider**: {LLM_PROVIDER} ({REASONING_MODEL})",
         "",
         "</details>",
         "",
         "---",
-        "*Powered by [Agentic Code Review Bot](https://github.com/Fahadulhassan1/code_review_ninja) — Multi-agent review with LangGraph + Groq*",
+        "*Powered by [Code Review Ninja](https://github.com/Fahadulhassan1/code_review_ninja) — Multi-agent review with LangGraph*",
     ])
 
     return "\n".join(lines)

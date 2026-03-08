@@ -29,9 +29,9 @@ logger = logging.getLogger(__name__)
 MAX_PAYLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
 app = FastAPI(
-    title="Agentic Code Review Bot",
-    description="Multi-agent AI code review powered by Groq + LangGraph",
-    version="1.0.0",
+    title="Code Review Ninja",
+    description="Multi-agent AI code review powered by LangGraph",
+    version="1.1.0",
 )
 
 
@@ -61,8 +61,8 @@ async def health():
     """Health check with basic diagnostics."""
     return {
         "status": "healthy",
-        "service": "agentic-code-review",
-        "version": "1.0.0",
+        "service": "code-review-ninja",
+        "version": "1.1.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
