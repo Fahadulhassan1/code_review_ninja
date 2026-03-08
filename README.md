@@ -12,8 +12,8 @@ Security Agent → Performance Agent → Style Agent → Docs Agent → Aggregat
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/Fahadulhassan1/agentic.git
-cd agentic
+git clone https://github.com/Fahadulhassan1/code_review_ninja.git
+cd code_review_ninja
 uv sync
 
 # 2. Add your free Groq API key (https://console.groq.com)
@@ -63,7 +63,7 @@ Add automatic AI reviews to any repo in 2 steps:
 1. Copy `.github/workflows/code-review.yml` into your repo
 2. Add `GROQ_API_KEY` as a repository secret (Settings → Secrets → Actions)
 
-That's it. Every PR will get an AI review comment automatically. The workflow pulls the bot from `Fahadulhassan1/agentic` — no fork needed.
+That's it. Every PR will get an AI review comment automatically. The workflow pulls the bot from `Fahadulhassan1/code_review_ninja` — no fork needed.
 
 ### Option B: Docker (self-hosted webhook server)
 
@@ -91,8 +91,8 @@ See [Webhook Server](#webhook-server) below for full setup.
 ### Option C: CLI (one-off reviews)
 
 ```bash
-git clone https://github.com/Fahadulhassan1/agentic.git
-cd agentic && uv sync
+git clone https://github.com/Fahadulhassan1/code_review_ninja.git
+cd code_review_ninja && uv sync
 cp .env.example .env  # add GROQ_API_KEY
 
 uv run python -m code_review https://github.com/owner/repo/pull/42

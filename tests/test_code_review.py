@@ -24,7 +24,7 @@ def test_pr_url_parsing():
     from code_review.cli import _parse_pr_url
     # Valid URLs
     assert _parse_pr_url("https://github.com/owner/repo/pull/42") == ("owner/repo", 42)
-    assert _parse_pr_url("https://github.com/Fahadulhassan1/agentic/pull/1") == ("Fahadulhassan1/agentic", 1)
+    assert _parse_pr_url("https://github.com/Fahadulhassan1/code_review_ninja/pull/1") == ("Fahadulhassan1/code_review_ninja", 1)
     assert _parse_pr_url("http://github.com/a/b/pull/999") == ("a/b", 999)
     # Invalid URLs
     assert _parse_pr_url("https://github.com/owner/repo") is None

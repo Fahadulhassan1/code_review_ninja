@@ -15,7 +15,7 @@ jobs:
       - name: Checkout review bot
         uses: actions/checkout@v4
         with:
-          repository: Fahadulhassan1/agentic
+          repository: Fahadulhassan1/code_review_ninja
           path: agentic-bot
 
       - name: Set up Python

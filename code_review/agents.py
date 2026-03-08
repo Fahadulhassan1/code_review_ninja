@@ -418,7 +418,7 @@ def _format_clean_review(state: ReviewState) -> str:
 </details>
 
 ---
-*Powered by [Agentic Code Review Bot](https://github.com/Fahadulhassan1/agentic) — Multi-agent review with LangGraph + Groq*
+*Powered by [Agentic Code Review Bot](https://github.com/Fahadulhassan1/code_review_ninja) — Multi-agent review with LangGraph + Groq*
 """
 
 
@@ -499,7 +499,7 @@ def _format_review_comment(
         "</details>",
         "",
         "---",
-        "*Powered by [Agentic Code Review Bot](https://github.com/Fahadulhassan1/agentic) — Multi-agent review with LangGraph + Groq*",
+        "*Powered by [Agentic Code Review Bot](https://github.com/Fahadulhassan1/code_review_ninja) — Multi-agent review with LangGraph + Groq*",
     ])
 
     return "\n".join(lines)
