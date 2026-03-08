@@ -263,12 +263,12 @@ def post_inline_review(
         f"## 🤖 AI Code Review — PR #{pr_number}",
         "",
         f"{status} — Found {total} issues ({severity_str})",
-        "",
-        f"📍 **{len(inline_comments)} findings posted as inline comments** on the diff.",
     ]
 
+    # Only include unplaced findings in the summary body;
+    # inline-placed findings already appear on the diff.
     if unplaced:
-        summary_lines.extend(["", f"### {len(unplaced)} additional findings", ""])
+        summary_lines.extend(["", f"### {len(unplaced)} additional findings (not on diff)", ""])
         for f in unplaced:
             sev_emoji = _INLINE_SEVERITY_EMOJI.get(f.severity, "⚠️")
             cat_emoji = _INLINE_CATEGORY_EMOJI.get(f.category, "")
