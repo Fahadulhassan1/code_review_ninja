@@ -5,7 +5,7 @@ import os
 import re
 from pathlib import PurePosixPath
 
-from github import Auth, Github
+from github import Auth, Github, GithubException
 
 from code_review.llm import LLM_PROVIDER, REASONING_MODEL
 from code_review.state import FileDiff, ReviewFinding, ReviewCategory, Severity
@@ -70,7 +70,7 @@ def _get_github_client() -> Github:
             "GITHUB_TOKEN not set. Create a personal access token at "
             "https://github.com/settings/tokens with 'repo' scope."
         )
-    return Github(auth=Auth.Token(token), timeout=GITHUB_TIMEOUT)
+    return Github(auth=Auth.Token(token), timeout=GITHUB_TIMEOUT, retry=0)
 
 
 def fetch_pr_diffs(repo_full_name: str, pr_number: int) -> tuple[dict, list[FileDiff]]:
@@ -291,9 +291,24 @@ def post_inline_review(
             event="COMMENT",
             comments=inline_comments,
         )
+    except GithubException as e:
+        # 403 = can't review own PR or insufficient permissions — fall back to issue comment
+        logger.warning("Inline review failed (status=%s), falling back to issue comment", e.status)
+        fallback_lines = [review_comment, "", "---", "", "### 📍 Inline Findings", ""]
+        for ic in inline_comments:
+            fallback_lines.append(f"**`{ic['path']}` L{ic['line']}**")
+            fallback_lines.append(ic["body"])
+            fallback_lines.append("")
+        try:
+            pr.create_issue_comment("\n".join(fallback_lines))
+        except GithubException:
+            logger.error("Could not post fallback comment either — check GITHUB_TOKEN permissions")
     except Exception as e:
         logger.warning("Inline review failed (%s), falling back to issue comment", e)
-        pr.create_issue_comment(review_comment)
+        try:
+            pr.create_issue_comment(review_comment)
+        except GithubException:
+            logger.error("Could not post fallback comment either — check GITHUB_TOKEN permissions")
 
     gh.close()
     return pr.html_url
