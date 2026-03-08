@@ -53,7 +53,9 @@ _rate_lock = threading.Lock()
 
 
 def _wait_for_rate_limit() -> None:
-    """Block until a request slot is available within the rate window."""
+    """Block until a request slot is available within the rate window. Skipped if GROQ_RATE_LIMIT=0."""
+    if _RATE_LIMIT <= 0:
+        return
     while True:
         with _rate_lock:
             now = time.monotonic()

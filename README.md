@@ -91,12 +91,13 @@ Add automatic AI reviews to any repo in 2 steps:
 
 | Provider | Required Secret(s) |
 |----------|--------------------|
-| Groq (default) | `GROQ_API_KEY` |
+| Groq free (default) | `GROQ_API_KEY` |
+| Groq paid | `GROQ_API_KEY` + `GROQ_RATE_LIMIT` = `0` |
 | OpenAI | `OPENAI_API_KEY` + `LLM_PROVIDER` = `openai` |
 | Anthropic | `ANTHROPIC_API_KEY` + `LLM_PROVIDER` = `anthropic` |
 | Gemini | `GOOGLE_API_KEY` + `LLM_PROVIDER` = `gemini` |
 
-That's it. Every PR will get an AI review comment automatically. The workflow pulls the bot from `Fahadulhassan1/code_review_ninja` — no fork needed.
+That's it. Every PR will get an AI review comment automatically. The workflow auto-installs the right provider package and pulls the bot from `Fahadulhassan1/code_review_ninja` — no fork needed.
 
 ### Option B: Docker (self-hosted webhook server)
 
@@ -198,6 +199,18 @@ uv run python tests/test_code_review.py
 
 # Unit tests don't require API keys; integration tests need your provider's API key
 ```
+
+## Rate Limiting
+
+Groq's free tier has strict rate limits. The bot throttles requests by default (25 req/min) to avoid hitting them.
+
+| Scenario | Setting |
+|----------|--------|
+| Groq free tier | Default (`GROQ_RATE_LIMIT=25`) — no change needed |
+| Groq paid plan | Set `GROQ_RATE_LIMIT=0` to disable throttling |
+| OpenAI / Anthropic / Gemini / Ollama | No rate limiting applied (not needed) |
+
+Set via `.env` for CLI/Docker, or as a GitHub Actions secret for workflows.
 
 ## Project Structure
 

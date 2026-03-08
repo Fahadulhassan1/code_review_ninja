@@ -28,13 +28,21 @@ jobs:
 
       - name: Install dependencies
         working-directory: agentic-bot
-        run: uv sync
+        env:
+          LLM_PROVIDER: ${{ secrets.LLM_PROVIDER }}
+        run: |
+          if [ -n "$LLM_PROVIDER" ] && [ "$LLM_PROVIDER" != "groq" ]; then
+            uv sync --extra "$LLM_PROVIDER"
+          else
+            uv sync
+          fi
 
       - name: Run AI Code Review
         working-directory: agentic-bot
         env:
           LLM_PROVIDER: ${{ secrets.LLM_PROVIDER || 'groq' }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_RATE_LIMIT: ${{ secrets.GROQ_RATE_LIMIT || '25' }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
