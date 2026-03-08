@@ -246,44 +246,8 @@ def post_inline_review(
         gh.close()
         return comment.html_url
 
-    # Build compact summary for review body
-    total = len(findings)
-    has_critical = any(f.severity == Severity.CRITICAL for f in findings)
-    status = "🚨 **Action Required**" if has_critical else "⚠️ **Review Findings**"
-
-    severity_counts: dict[Severity, int] = {}
-    for f in findings:
-        severity_counts[f.severity] = severity_counts.get(f.severity, 0) + 1
-    severity_str = ", ".join(
-        f"{count} {sev.value}" for sev, count in
-        sorted(severity_counts.items(), key=lambda x: list(Severity).index(x[0]))
-    )
-
-    summary_lines = [
-        f"## 🤖 AI Code Review — PR #{pr_number}",
-        "",
-        f"{status} — Found {total} issues ({severity_str})",
-    ]
-
-    # Only include unplaced findings in the summary body;
-    # inline-placed findings already appear on the diff.
-    if unplaced:
-        summary_lines.extend(["", f"### {len(unplaced)} additional findings (not on diff)", ""])
-        for f in unplaced:
-            sev_emoji = _INLINE_SEVERITY_EMOJI.get(f.severity, "⚠️")
-            cat_emoji = _INLINE_CATEGORY_EMOJI.get(f.category, "")
-            summary_lines.append(
-                f"- {cat_emoji} {sev_emoji} **[{f.severity.value.upper()}] {f.title}** "
-                f"(`{f.file_path}`): {f.description}"
-            )
-
-    summary_lines.extend([
-        "",
-        "---",
-        f"*Powered by [Code Review Ninja](https://github.com/Fahadulhassan1/code_review_ninja) — {LLM_PROVIDER} ({REASONING_MODEL})*",
-    ])
-
-    review_body = "\n".join(summary_lines)
+    # Review body is intentionally minimal — findings live as inline comments.
+    review_body = ""
 
     try:
         pr.create_review(
