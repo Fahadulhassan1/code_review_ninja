@@ -1,7 +1,7 @@
 [project]
 name = "agentic-code-review"
-version = "1.0.0"
-description = "Multi-agent AI code review bot powered by Groq + LangGraph"
+version = "1.1.0"
+description = "Multi-agent AI code review bot — supports Groq, OpenAI, Anthropic, Ollama, Gemini"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -16,6 +16,18 @@ dependencies = [
     "rich>=14.3.3",
     "tenacity>=9.0.0",
     "uvicorn>=0.41.0",
+]
+
+[project.optional-dependencies]
+openai = ["langchain-openai>=0.3.0"]
+anthropic = ["langchain-anthropic>=0.3.0"]
+ollama = ["langchain-ollama>=0.3.0"]
+gemini = ["langchain-google-genai>=2.1.0"]
+all = [
+    "langchain-openai>=0.3.0",
+    "langchain-anthropic>=0.3.0",
+    "langchain-ollama>=0.3.0",
+    "langchain-google-genai>=2.1.0",
 ]
 
 [project.scripts]

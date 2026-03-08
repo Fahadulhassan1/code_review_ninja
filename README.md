@@ -1,11 +1,36 @@
-# Agentic Code Review Bot
+# Code Review Ninja 🥷
 
-Multi-agent AI code review bot powered by **Groq** (Llama 3.3 70B) and **LangGraph**.
+Multi-agent AI code review bot powered by **LangGraph** — supports **Groq** (free), **OpenAI**, **Anthropic**, **Ollama** (local), and **Google Gemini**.
 
 Four specialist agents analyze every PR for security vulnerabilities, performance issues, style violations, and missing documentation — then aggregate findings into a single formatted review comment.
 
 ```
 Security Agent → Performance Agent → Style Agent → Docs Agent → Aggregator
+```
+
+## Supported Providers
+
+| Provider | Default Model | API Key Env Var | Free Tier |
+|----------|--------------|-----------------|-----------|
+| **Groq** (default) | `llama-3.3-70b-versatile` | `GROQ_API_KEY` | ✅ 100K tokens/day |
+| **OpenAI** | `gpt-4o` | `OPENAI_API_KEY` | ❌ |
+| **Anthropic** | `claude-sonnet-4-20250514` | `ANTHROPIC_API_KEY` | ❌ |
+| **Ollama** | `llama3.1` | None (local) | ✅ Unlimited |
+| **Gemini** | `gemini-2.0-flash` | `GOOGLE_API_KEY` | ✅ Free tier available |
+
+Switch providers by setting `LLM_PROVIDER` in `.env`:
+```bash
+LLM_PROVIDER=openai    # or groq, anthropic, ollama, gemini
+```
+
+Install the extras for your chosen provider:
+```bash
+uv sync                         # Groq (included by default)
+uv sync --extra openai          # + OpenAI
+uv sync --extra anthropic       # + Anthropic
+uv sync --extra ollama          # + Ollama
+uv sync --extra gemini          # + Google Gemini
+uv sync --extra all             # All providers
 ```
 
 ## Quick Start
@@ -16,9 +41,10 @@ git clone https://github.com/Fahadulhassan1/code_review_ninja.git
 cd code_review_ninja
 uv sync
 
-# 2. Add your free Groq API key (https://console.groq.com)
+# 2. Configure your provider
 cp .env.example .env
-# Edit .env and add GROQ_API_KEY (and optionally GITHUB_TOKEN)
+# Edit .env — add your API key (GROQ_API_KEY by default)
+# Optional: set LLM_PROVIDER=openai/anthropic/ollama/gemini
 
 # 3. Run a demo review
 uv run python -m code_review --demo
@@ -61,7 +87,14 @@ uv run python -m code_review --repo owner/repo --pr 42 --post
 Add automatic AI reviews to any repo in 2 steps:
 
 1. Copy `.github/workflows/code-review.yml` into your repo
-2. Add `GROQ_API_KEY` as a repository secret (Settings → Secrets → Actions)
+2. Add your provider's API key as a repository secret (Settings → Secrets → Actions)
+
+| Provider | Required Secret(s) |
+|----------|--------------------|
+| Groq (default) | `GROQ_API_KEY` |
+| OpenAI | `OPENAI_API_KEY` + `LLM_PROVIDER` = `openai` |
+| Anthropic | `ANTHROPIC_API_KEY` + `LLM_PROVIDER` = `anthropic` |
+| Gemini | `GOOGLE_API_KEY` + `LLM_PROVIDER` = `gemini` |
 
 That's it. Every PR will get an AI review comment automatically. The workflow pulls the bot from `Fahadulhassan1/code_review_ninja` — no fork needed.
 
@@ -73,9 +106,17 @@ Run the review bot as a service that auto-reviews PRs across multiple repos:
 # Build
 docker build -t code-review-bot .
 
-# Run
+# Run (Groq — default)
 docker run -d \
   -e GROQ_API_KEY=gsk_your_key \
+  -e GITHUB_TOKEN=ghp_your_token \
+  -p 8000:8000 \
+  code-review-bot
+
+# Run (OpenAI example)
+docker run -d \
+  -e LLM_PROVIDER=openai \
+  -e OPENAI_API_KEY=sk-your_key \
   -e GITHUB_TOKEN=ghp_your_token \
   -p 8000:8000 \
   code-review-bot
@@ -93,7 +134,7 @@ See [Webhook Server](#webhook-server) below for full setup.
 ```bash
 git clone https://github.com/Fahadulhassan1/code_review_ninja.git
 cd code_review_ninja && uv sync
-cp .env.example .env  # add GROQ_API_KEY
+cp .env.example .env  # add your provider's API key
 
 uv run python -m code_review https://github.com/owner/repo/pull/42
 ```
@@ -108,7 +149,7 @@ The webhook server lets GitHub automatically trigger reviews on every PR event (
 
 ```bash
 # With Docker (recommended)
-docker run -d -e GROQ_API_KEY=... -e GITHUB_TOKEN=... -p 8000:8000 code-review-bot
+docker run -d -e LLM_PROVIDER=groq -e GROQ_API_KEY=... -e GITHUB_TOKEN=... -p 8000:8000 code-review-bot
 
 # Or without Docker
 uv run uvicorn code_review.server:app --host 0.0.0.0 --port 8000
@@ -155,7 +196,7 @@ Set `GITHUB_WEBHOOK_SECRET` in `.env` to enable HMAC-SHA256 signature verificati
 # Run all tests (unit + integration)
 uv run python tests/test_code_review.py
 
-# Unit tests don't require API keys; integration tests need GROQ_API_KEY
+# Unit tests don't require API keys; integration tests need your provider's API key
 ```
 
 ## Project Structure
@@ -165,7 +206,7 @@ agentic/
 ├── code_review/
 │   ├── __init__.py
 │   ├── __main__.py               # python -m code_review entry point
-│   ├── llm.py                    # Groq LLM config, rate limiting, timeouts
+│   ├── llm.py                    # Multi-provider LLM config (Groq/OpenAI/Anthropic/Ollama/Gemini)
 │   ├── state.py                  # ReviewState, FileDiff, ReviewFinding models
 │   ├── agents.py                 # 4 specialist agents + aggregator (with retry)
 │   ├── graph.py                  # LangGraph sequential orchestration
@@ -186,7 +227,7 @@ agentic/
 
 | Component | Tool |
 |-----------|------|
-| LLM | Groq — Llama 3.3 70B Versatile (free tier) |
+| LLM | Groq, OpenAI, Anthropic, Ollama, Gemini (configurable) |
 | Agent Framework | LangGraph |
 | Web Framework | FastAPI |
 | GitHub API | PyGithub |
