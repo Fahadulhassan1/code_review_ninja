@@ -44,17 +44,41 @@ _SEVERITY_MAP = {
 _VALID_SEVERITIES = set(_SEVERITY_MAP.keys())
 
 
+_HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+
+
+def _annotate_patch(patch: str) -> str:
+    """Add new-file line numbers to each diff line so the LLM can reference them."""
+    out = []
+    cur = 0
+    for raw in patch.split("\n"):
+        m = _HUNK_RE.match(raw)
+        if m:
+            cur = int(m.group(1))
+            out.append(raw)
+            continue
+        if raw.startswith("-"):
+            out.append(f"     | {raw}")
+        elif raw.startswith("+") or raw.startswith(" "):
+            out.append(f"L{cur:<4d}| {raw}")
+            cur += 1
+        else:
+            out.append(raw)
+    return "\n".join(out)
+
+
 def _format_diffs_for_review(file_diffs: list[FileDiff]) -> str:
     """Format file diffs into a readable string for LLM consumption."""
     parts = []
     for diff in file_diffs:
         if not diff.patch:
             continue
+        annotated = _annotate_patch(diff.patch)
         parts.append(
             f"=== File: {diff.filename} ({diff.status}) "
             f"[+{diff.additions}/-{diff.deletions}] ===\n"
             f"Language: {diff.language or 'unknown'}\n"
-            f"```\n{diff.patch}\n```\n"
+            f"```\n{annotated}\n```\n"
         )
     return "\n".join(parts) if parts else "No code changes to review."
 
@@ -148,11 +172,14 @@ def _build_finding(
 
 
 _REVIEW_OUTPUT_FORMAT = """
+Each diff line is prefixed with its new-file line number (e.g. "L42 | +code").
+Use these L-numbers in the LINES field so comments land on the correct line.
+
 For EACH issue found, use EXACTLY this format:
 
 FINDING:
 FILE: <exact file path from the diff>
-LINES: <line range, e.g. 10-15>
+LINES: <use the L-number shown in the diff, e.g. 42 or 42-45>
 SEVERITY: <critical|high|medium|low|info>
 TITLE: <short one-line summary>
 DESCRIPTION: <detailed explanation>
