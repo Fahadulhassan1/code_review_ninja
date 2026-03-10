@@ -16,7 +16,6 @@ The bot posts inline comments directly on the relevant lines of the PR diff, hig
 
 ![Inline PR Review Comment](screenshots/code_review_image.png)
 
-*The bot detects issues like missing read/write timeouts on `http.ListenAndServe` and suggests fixes using `http.Server` struct — posted automatically via GitHub Actions.*
 
 ## Supported Providers
 
