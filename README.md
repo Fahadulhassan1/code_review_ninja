@@ -8,6 +8,16 @@ Four specialist agents analyze every PR for security vulnerabilities, performanc
 Security Agent → Performance Agent → Style Agent → Docs Agent → Aggregator
 ```
 
+## Screenshots
+
+### Inline PR Review Comments
+
+The bot posts inline comments directly on the relevant lines of the PR diff, highlighting issues with severity and actionable suggestions:
+
+![Inline PR Review Comment](screenshots/code_review_image.png)
+
+*The bot detects issues like missing read/write timeouts on `http.ListenAndServe` and suggests fixes using `http.Server` struct — posted automatically via GitHub Actions.*
+
 ## Supported Providers
 
 | Provider | Default Model | API Key Env Var | Free Tier |
