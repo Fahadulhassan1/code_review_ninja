@@ -258,7 +258,7 @@ def post_inline_review(
     except GithubException as e:
         # 403 = can't review own PR or insufficient permissions — fall back to issue comment
         logger.warning("Inline review failed (status=%s), falling back to issue comment", e.status)
-        fallback_lines = [review_comment, "", "---", "", "### 📍 Inline Findings", ""]
+        fallback_lines = ["## 🤖 Code Review Ninja — Inline Findings", ""]
         for ic in inline_comments:
             fallback_lines.append(f"**`{ic['path']}` L{ic['line']}**")
             fallback_lines.append(ic["body"])
@@ -269,8 +269,13 @@ def post_inline_review(
             logger.error("Could not post fallback comment either — check GITHUB_TOKEN permissions")
     except Exception as e:
         logger.warning("Inline review failed (%s), falling back to issue comment", e)
+        fallback_lines = ["## 🤖 Code Review Ninja — Inline Findings", ""]
+        for ic in inline_comments:
+            fallback_lines.append(f"**`{ic['path']}` L{ic['line']}**")
+            fallback_lines.append(ic["body"])
+            fallback_lines.append("")
         try:
-            pr.create_issue_comment(review_comment)
+            pr.create_issue_comment("\n".join(fallback_lines))
         except GithubException:
             logger.error("Could not post fallback comment either — check GITHUB_TOKEN permissions")
 
